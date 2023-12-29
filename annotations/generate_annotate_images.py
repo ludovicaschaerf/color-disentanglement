@@ -176,17 +176,12 @@ def generate_annotate_images(
                                                 'H4', 'S4', 'V4', 'H5', 'S5', 'V5', 'Monochromatic', 
                                                 'Analogous', 'Complementary', 'Triadic', 'Split Complementary',
                                                 'Double Complementary'])
-            df['color'] = cat_from_hue(df['H1'], df['S1'], df['V1'])
+            df['Color'] = cat_from_hue(df['H1'], df['S1'], df['V1'])
             print(df.head())
             print(df['Triadic'].value_counts())
             print(df['Double Complementary'].value_counts())
-            df.to_csv(DATA_DIR + f'color_palette.csv', index=False)
+            df.to_csv(DATA_DIR + f'color_palette{seeds[0]:05d}-{seeds[-1]:05d}.csv', index=False)
         
-    print('storing files')           
-    df = pd.DataFrame(colours, columns=['fname', 'H1', 'S1', 'V1', 'H2', 'S2', 'V2', 'H3', 'S3', 'V3', 'H4', 'S4', 'V4', 'H5', 'S5', 'V5', 'Monochromatic', 'Analogous', 'Complementary', 'Triadic', 'Split Complementary', 'Double Complementary'])
-    print(df.head())
-    df.to_csv(DATA_DIR + f'color_palette_{seeds[0]:05d}-{seeds[-1]:05d}.csv', index=False)
-         
     info = {'fname': fnames, 'seeds':seeds, 'z_vectors': z_vals, 'w_vectors': w_vals}
     with open(f'{DATA_DIR}seeds{seeds[0]:05d}-{seeds[-1]:05d}.pkl', 'wb') as f:
         pickle.dump(info, f)

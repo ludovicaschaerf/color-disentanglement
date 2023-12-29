@@ -80,11 +80,14 @@ def annotate_textile_images(
                                                 'Monochromatic', 'Analogous', 'Complementary', 'Triadic',
                                                 'Split Complementary', 'Double Complementary',
                                                 ])
-            df['color'] = cat_from_hue(df['H1'], df['S1'], df['V1'])
+            df['Color'] = cat_from_hue(df['H1'], df['S1'], df['V1'])
+            df = df.sort_values('fname')
+            seeds_min = int(df['fname'][0].replace('.jpg'))
+            seeds_max = int(df['fname'][-1].replace('.jpg'))
             print(df.head())
             print(df['Triadic'].value_counts())
             print(df['Double Complementary'].value_counts())
-            df.to_csv(DATA_DIR + f'color_palette.csv', index=False)
+            df.to_csv(DATA_DIR + f'color_palette{seeds_min:05d}-{seeds_max:05d}.csv', index=False)
     
 #----------------------------------------------------------------------------
 
