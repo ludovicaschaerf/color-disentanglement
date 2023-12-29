@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import torch
 import numpy as np
 import pandas as pd
 
@@ -11,31 +12,25 @@ from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
-from scipy.stats import pearsonr
-
 from tqdm import tqdm
 import random
 from os.path import join
 import os
 import pickle
 
-import torch
-
 import matplotlib.pyplot as plt
 import PIL
 from PIL import Image, ImageColor
 
 import sys
-sys.path.append('stylegan')
+sys.path.append('../stylegan')
 from networks_stylegan3 import *
 import dnnlib 
 import legacy
 
-sys.path.append('..')
+sys.path.append('../utils')
 from utils import *
 
-
- 
 class DisentanglementBase:
     def __init__(self, model, annotations, df, space, colors_list, color_bins, compute_s=False, variable='H1', categorical=True, repo_folder='.'):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -57,7 +52,8 @@ class DisentanglementBase:
         self.color_bins = color_bins
         self.colors_list = colors_list
         
-        self.to_hsv()
+        if 'top1col' in self.df.columns:
+            self.to_hsv()
         if compute_s:
             self.get_s_space()
         
@@ -147,44 +143,10 @@ class DisentanglementBase:
         X = self.get_encoded_latent()[:y.shape[0], :]
                 
         if self.categorical:
-            # bins = [(x-1) * 360 / (len(self.colors_list) - 1)  if x != 1 
-            #         else 0 for x in range(len(self.colors_list) + 1)]
-            # bins[0] = -1
-            if 'BW' in self.colors_list:
-                if self.color_bins is None:
-                    self.color_bins = [(x) * 360 / (len(self.colors_list) - 1) for x in range(len(self.colors_list))]
-                    print(self.color_bins)
-                else:
-                    print(self.color_bins)
-                
-                y_cat, bb = pd.cut(y, 
-                                bins=self.color_bins,
-                                labels=self.colors_list[:-1], #BW in last position
-                                include_lowest=True,
-                                ordered=True,
-                                retbins=True,
-                                )
-                y_cat = y_cat.add_categories('BW')
-                
-                y_cat[y <= 10] = self.colors_list[-2]
-                y_cat[y_s <= 10] = 'BW'
-                y_cat[y_v <= 10] = 'BW'
-                
+            if 'H' in self.variable:
+                y_cat = cat_from_hue(y, y_s, y_v, colors_list=self.colors_list, colors_bin=self.color_bins)   
             else:
-                if self.color_bins is None:
-                    self.color_bins = [(x) * 360 / (len(self.colors_list)) for x in range(len(self.colors_list) + 1)]
-                    print(' No BW' , self.color_bins)
-                else:
-                    print(' No BW' , self.color_bins)
-                
-                y_cat, bb = pd.cut(y, 
-                                bins=self.color_bins,
-                                labels=self.colors_list,
-                                include_lowest=True,
-                                ordered=True, # True when not repeating colors
-                                retbins=True,
-                                )
-            
+                y_cat = y
             print('Training color distributions', y_cat.value_counts())
             x_train, x_val, y_train, y_val = train_test_split(X, y_cat, test_size=0.2)
         else:

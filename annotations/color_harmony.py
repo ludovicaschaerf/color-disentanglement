@@ -29,7 +29,8 @@ def is_triadic(hues):
     for hue, other_hue, third_hue in combinations(hues, 3):
         if abs((hue - other_hue) % 360 - 120) < 15 or abs((third_hue - other_hue) % 360 - 120) < 15:
             if abs((third_hue - other_hue) % 360 - 120) < 15 or abs((third_hue - hue) % 360 - 120) < 15:
-                return True, min(abs((third_hue - other_hue) % 360 - 120), abs((third_hue - hue) % 360 - 120), abs((hue - other_hue) % 360 - 120))
+                if abs((other_hue - hue) % 360 - 120) < 15 or abs((other_hue - third_hue) % 360 - 120) < 15:
+                    return True, min(abs((third_hue - other_hue) % 360 - 120), abs((third_hue - hue) % 360 - 120), abs((hue - other_hue) % 360 - 120))
     return False, 0
 
 # Function to check if the colors are split complementary
@@ -37,9 +38,11 @@ def is_split_complementary(hues):
     for hue, other_hue, third_hue in combinations(hues, 3):
         if (abs((hue - other_hue) % 360 - 150) < 15 or abs((hue - other_hue) % 360 - 210) < 15) or (
             abs((hue - third_hue) % 360 - 150) < 15 or abs((hue - third_hue) % 360 - 210) < 15):
-            if (abs((hue - other_hue) % 360 - 150) < 15 or abs((hue - other_hue) % 360 - 210) < 15) or (
+            if (abs((other_hue - hue) % 360 - 150) < 15 or abs((other_hue - hue) % 360 - 210) < 15) or (
                 abs((other_hue - third_hue) % 360 - 150) < 15 or abs((other_hue - third_hue) % 360 - 210) < 15):
-                return True, min(min(abs((hue - other_hue) % 360 - 150), abs((hue - other_hue) % 360 - 210)), 
+                if (abs((third_hue - hue) % 360 - 150) < 15 or abs((third_hue - hue) % 360 - 210) < 15) or (
+                abs((third_hue - other_hue) % 360 - 150) < 15 or abs((third_hue - other_hue) % 360 - 210) < 15):
+                    return True, min(min(abs((hue - other_hue) % 360 - 150), abs((hue - other_hue) % 360 - 210)), 
                                  min(abs((hue - third_hue) % 360 - 150), abs((hue - third_hue) % 360 - 210)), 
                                  min(abs((third_hue - other_hue) % 360 - 150), abs((third_hue - other_hue) % 360 - 210)), )
     return False, 0

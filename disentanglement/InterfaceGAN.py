@@ -54,3 +54,4 @@ class InterfaceGAN(DisentanglementBase):
             print('Val performance linear regression', performance)
             return clf.coef_ / np.linalg.norm(clf.coef_), performance
     
+## store npy per direction

@@ -1,22 +1,22 @@
 import argparse
 import pandas as pd
 import pickle
-from DisentanglementBase import rgb2hsv, hex2rgb, DisentanglementBase
 from tqdm import tqdm
 import numpy as np
 import sys
 from scipy import signal
 import cv2
  
-sys.path.append('backend')
+sys.path.append('../annotations')
 from color_annotations import extract_color
-from dci import dci
-sys.path.append('.')
 
+sys.path.append('../stylegan')
 import dnnlib 
 import legacy
 import random
 
+sys.path.append('../disentanglement')
+from disentanglement import DisentanglementBase
         
 class DisentanglementEvaluation(DisentanglementBase):
     def __init__(self, model, annotations, df, space, colors_list, color_bins, compute_s=False, variable='H1', categorical=True, repo_folder='.'):
@@ -64,57 +64,6 @@ class DisentanglementEvaluation(DisentanglementBase):
                         print('Failed other image extraction', e)
         return variation_scores
             
-    def re_scoring_categorical(self, all_variations, color, method, subfolder):
-        # Implement your categorical evaluation logic here
-        ### TODO formulate into rescoring analysis of InterfaceGAN
-        ### change to equal ranges
-        all_variations = all_variations[all_variations['color_vector'] == color][
-            all_variations['method'] == method][all_variations['subfolder'] == subfolder
-            ]
-            
-        all_variations.loc[all_variations[all_variations['color'] == all_variations['color_vector']].index, 'score'] = 1
-        all_variations.loc[all_variations[all_variations['color'] != all_variations['color_vector']].index, 'score'] = 0
-        
-        print(all_variations['score'].value_counts())
-        
-        scores = {}
-        scores_all = np.round(all_variations[all_variations['lambda'] != 0]['score'].mean(), 3)
-        scores_per_lambda = [np.round(all_variations[all_variations['lambda'] == l]['score'].mean() - all_variations[all_variations['lambda'] == 0]['score'].mean(), 3)
-                                for l in range(1, 16)]
-        
-        
-        return scores_all, scores_per_lambda
-            
-        
-    def DCI(self):
-        factors = self.df[self.variable]#.values.reshape((len(self.df[self.variable].values), 1))
-        codes = self.get_encoded_latent()
-        factors_color = []
-        print(factors.shape, codes.shape)
-        for color in self.colors_list:
-            if color != 'BW':
-                color_range = color2range(color, self.colors_list, self.color_bins)
-                tmp = factors.map(lambda x: range2continuous(x, color_range['h']))
-                print(tmp.value_counts())
-                factors_color.append(tmp.values)
-            elif color == 'BW':
-                factors_s = np.abs(100 - self.df['S1'])
-                print(factors_s.value_counts())
-                factors_color.append(factors_s.values)
-        factors_color = np.array(factors_color).T
-        print(factors_color.shape)
-        disentanglement, completeness, informativeness = dci(factors_color, codes)
-        # Implement your custom metric 1 evaluation logic here
-        # You can use specific techniques for this metric and call generate_changes if needed.
-        ## Best metric on model disentanglement for a certain feature from Measuring Disentanglement: DCI
-        return disentanglement, completeness, informativeness
-    
-    def AD(self):
-        # Implement your custom metric 2 evaluation logic here
-        # You can use specific techniques for this metric and call generate_changes if needed.
-        ## AD & Comparison between found vectors using coviariance in InterFaceGAN
-        return ''
-        
     def structural_coherence(self, im1, im2):
         # Implement your custom metric 3 evaluation logic here
         # You can use specific techniques for this metric and call generate_changes if needed.
@@ -126,28 +75,6 @@ class DisentanglementEvaluation(DisentanglementBase):
                         
         return cor
 
-    def re_scoring_continuous(self, separation_vector, seeds, lambd):
-        # Implement your continuous evaluation logic here
-        ### Re-scoring formula from Semantic Hierarchy emerges...
-        print('To reimplement')
-        increase = 0
-        samples = len(seeds)
-        for seed in tqdm(seeds):
-            images, lambdas = self.generate_changes(seed, separation_vector, min_epsilon=-lambd, max_epsilon=lambd, count=5, savefig=False) 
-            try:
-                colors_orig = extract_color(images[2], 5, 1, None)
-                hsv = list(rgb2hsv(*hex2rgb(colors_orig[0])))
-                for j,val in enumerate(['h', 's', 'v']):
-                    if val == variable:
-                        if color_range[val] is not None:
-                            for i in [0,1,3,4]:
-                                colors_changed = extract_color(images[i], 5, 1, None)
-                                hsvp = list(rgb2hsv(*hex2rgb(colors_changed[0])))
-                                increase += max(0, hsvp[j] - hsv[j])
-            except Exception as e:
-                print(e)
-            print(increase, samples)
-            return np.round(increase / samples, 2)
             
 if __name__ == '__main__':
     print('Disentanglement evaluation starting')

@@ -71,6 +71,9 @@ class ShapleyVec(DisentanglementBase):
                     positive_vals.append(list(shap_vals[-num_factors//2:]))
                     negative_vals.append(list(shap_vals[:num_factors//2]))
             
+        ### prendere l'insieme tale che la somma sia maggiore uguale a 80
+        #### new regression masked
+        
         #shap.summary_plot(shap_values, x_val)
         #plt.savefig('shap.png')
         if weighted:
