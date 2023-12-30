@@ -4,7 +4,6 @@ import torch
 import numpy as np
 import pandas as pd
 
-from sklearn.svm import SVC
 from sklearn.decomposition import PCA
 import shap
 import xgboost as xgb
@@ -49,6 +48,7 @@ class DisentanglementBase:
                        'L13_256_128', 'L14_256_3']
         self.layers_shapes = [4, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 362, 256, 181, 128, 128]
         self.decoding_layers = 16
+        
         self.color_bins = color_bins
         self.colors_list = colors_list
         
@@ -147,7 +147,7 @@ class DisentanglementBase:
                 y_cat = cat_from_hue(y, y_s, y_v, colors_list=self.colors_list, colors_bin=self.color_bins)   
             else:
                 y_cat = y
-            print('Training color distributions', y_cat.value_counts())
+            print('Training color distributions', pd.Series(y_cat).value_counts())
             x_train, x_val, y_train, y_val = train_test_split(X, y_cat, test_size=0.2)
         else:
             if extremes:

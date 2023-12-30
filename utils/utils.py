@@ -1,3 +1,4 @@
+import pandas as pd
 import extcolors
 from colormap import rgb2hex
 
@@ -87,23 +88,23 @@ def plot_color_palette(outpath, zoom, list_precent, text_c, list_color, input_im
 
 def cat_from_hue(hues, saturations, values, 
                  colors_list=['Brown', 'Yellow', 'Green', 'Cyan', 'Blue', 'Magenta', 'Red', 'BW'],
-                 colors_bin=[0, 45, 75, 140, 195, 260, 340, 360]):
+                 color_bins=[0, 35, 70, 150, 200, 260, 345, 360]):
     if 'BW' in colors_list:
         if color_bins is None:
             color_bins = [(x) * 360 / (len(colors_list) - 1) for x in range(len(colors_list))]
             
-            y_cat, bb = pd.cut(hues, 
+        y_cat, bb = pd.cut(hues, 
                                bins=color_bins,
                                labels=colors_list[:-1], #BW in last position
                                include_lowest=True,
                                ordered=True,
                                retbins=True,
                             )
-            y_cat = y_cat.add_categories('BW')
+        y_cat = y_cat.add_categories('BW')
                 
-            y_cat[hues <= 10] = colors_list[-2]
-            y_cat[saturations <= 10] = 'BW'
-            y_cat[values <= 10] = 'BW'
+        y_cat[hues <= 15] = colors_list[-2]
+        y_cat[saturations <= 5] = 'BW'
+        y_cat[values <= 5] = 'BW'
     else:
         if color_bins is None:
             color_bins = [(x) * 360 / (len(colors_list)) for x in range(len(colors_list) + 1)]
