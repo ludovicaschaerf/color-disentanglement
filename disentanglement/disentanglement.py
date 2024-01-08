@@ -138,15 +138,17 @@ class DisentanglementBase:
     
     def get_train_val(self, extremes=False):
         y = np.array(self.df[self.variable].values)
+        print(y.shape, 'y')
         y_v = np.array(self.df['V1'].values)
         y_s = np.array(self.df['S1'].values)
         X = self.get_encoded_latent()[:y.shape[0], :]
-                
+        print(X.shape, 'X')
         if self.categorical:
             if 'H' in self.variable:
                 y_cat = cat_from_hue(y, y_s, y_v, colors_list=self.colors_list, colors_bin=self.color_bins)   
             else:
                 y_cat = y
+                print('already existing')
             print('Training color distributions', pd.Series(y_cat).value_counts())
             x_train, x_val, y_train, y_val = train_test_split(X, y_cat, test_size=0.2)
         else:
@@ -154,16 +156,52 @@ class DisentanglementBase:
                 # Calculate the number of elements to consider (20% of array size)
                 num_elements = int(0.2 * len(y))
                 # Get indices of the top num_elements maximum values
-                top_indices = np.argpartition(array, -num_elements)[-num_elements:]
-                bottom_indices = np.argpartition(array, -num_elements)[:num_elements]
-                y_ext = y[top_indices + bottom_indices, :]
-                X_ext = X[top_indices + bottom_indices, :]
+                top_indices = np.argpartition(y, -num_elements)[-num_elements:]
+                bottom_indices = np.argpartition(y, -num_elements)[:num_elements]
+                y_ext = y[list(top_indices) + list(bottom_indices)]
+                X_ext = X[list(top_indices) + list(bottom_indices), :]
                 x_train, x_val, y_train, y_val = train_test_split(X_ext, y_ext, test_size=0.2)
             else:
                 x_train, x_val, y_train, y_val = train_test_split(X, y, test_size=0.2)
         
         return x_train, x_val, y_train, y_val
-      
+        
+    def get_original_position_latent(self, positive_idxs, negative_idxs, positive_vals=None, negative_vals=None):
+        # Reconstruct the latent direction
+        separation_vectors = []
+        for i in range(len(self.colors_list)):
+            if self.space.lower() == 's':
+                current_idx = 0
+                vectors = []
+                for j, (leng, layer) in enumerate(zip(self.layers_shapes, self.layers)):
+                    arr = np.zeros(leng)
+                    for positive_idx in positive_idxs[i]:
+                        if positive_idx >= current_idx and positive_idx < current_idx + leng:
+                            arr[positive_idx - current_idx] = 1
+                    for negative_idx in negative_idxs[i]:
+                        if negative_idx >= current_idx and negative_idx < current_idx + leng:
+                            arr[negative_idx - current_idx] = 1
+                        arr = np.round(arr / (np.linalg.norm(arr) + 0.000001), 4)
+                    vectors.append(arr)
+                    current_idx += leng
+            elif self.space.lower() == 'z' or self.space.lower() == 'w':
+                vectors = np.zeros(512)
+                if positive_vals:
+                    vectors[positive_idxs[i]] = positive_vals[i]
+                else:
+                    vectors[positive_idxs[i]] = 1
+                if negative_vals:
+                    vectors[negative_idxs[i]] = negative_vals[i]
+                else:
+                    vectors[negative_idxs[i]] = -1
+                vectors = np.round(vectors / (np.linalg.norm(vectors) + 0.000001), 4)
+            else:
+                raise Exception("""This space is not allowed in this function, 
+                                    select among Z, W, S""")
+            separation_vectors.append(vectors)
+            
+        return separation_vectors    
+    
     def generate_images(self, seed, separation_vector=None, lambd=0):
         """
         The generate_original_image function takes in a latent vector and the model,
@@ -268,7 +306,6 @@ class DisentanglementBase:
         :doc-author: Trelent
         """
             
-        os.makedirs(join(self.repo_folder, 'figures', subfolder), exist_ok=True)
         lambdas = np.linspace(min_epsilon, max_epsilon, count)
         images = []
         # Generate images.
@@ -279,6 +316,7 @@ class DisentanglementBase:
                 images.append(self.generate_images(seed, separation_vector=separation_vector, lambd=lambd))
         
         if savefig:
+            os.makedirs(join(self.repo_folder, 'figures', subfolder), exist_ok=True)
             fig, axs = plt.subplots(1, len(images), figsize=(110,20))
             title = 'Disentanglement method: '+ method + ', on feature: ' + feature + ' on space: ' + self.space + ', image seed: ' + str(seed)
             name = '_'.join([method, feature, self.space, str(seed), str(lambdas[-1])])

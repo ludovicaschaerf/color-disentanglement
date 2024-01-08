@@ -1,44 +1,30 @@
+#!/usr/bin/env python
+
+DATA_DIR = '../data/'
+
+import argparse
+import numpy as np
+import pandas as pd
+
+from tqdm import tqdm
+import random
+from os.path import join
+import os
+import pickle
+import sys
+
 from disentanglement import DisentanglementBase
+sys.path.append('../stylegan')
+from networks_stylegan3 import *
+import dnnlib 
+import legacy
+sys.path.append('../utils')
+from utils import *
 
 class StyleSpace(DisentanglementBase):
     def __init__(self, model, annotations, df, space, colors_list, color_bins, compute_s=False, variable='H1', categorical=True, repo_folder='.'):
         super().__init__(model, annotations, df, space, colors_list, color_bins, compute_s, variable, categorical, repo_folder)
     
-    def get_original_position_latent(self, positive_idxs, negative_idxs, positive_vals=None, negative_vals=None):
-        # Reconstruct the latent direction
-        separation_vectors = []
-        for i in range(len(self.colors_list)):
-            if self.space.lower() == 's':
-                current_idx = 0
-                vectors = []
-                for j, (leng, layer) in enumerate(zip(self.layers_shapes, self.layers)):
-                    arr = np.zeros(leng)
-                    for positive_idx in positive_idxs[i]:
-                        if positive_idx >= current_idx and positive_idx < current_idx + leng:
-                            arr[positive_idx - current_idx] = 1
-                    for negative_idx in negative_idxs[i]:
-                        if negative_idx >= current_idx and negative_idx < current_idx + leng:
-                            arr[negative_idx - current_idx] = 1
-                        arr = np.round(arr / (np.linalg.norm(arr) + 0.000001), 4)
-                    vectors.append(arr)
-                    current_idx += leng
-            elif self.space.lower() == 'z' or self.space.lower() == 'w':
-                vectors = np.zeros(512)
-                if positive_vals:
-                    vectors[positive_idxs[i]] = positive_vals[i]
-                else:
-                    vectors[positive_idxs[i]] = 1
-                if negative_vals:
-                    vectors[negative_idxs[i]] = negative_vals[i]
-                else:
-                    vectors[negative_idxs[i]] = -1
-                vectors = np.round(vectors / (np.linalg.norm(vectors) + 0.000001), 4)
-            else:
-                raise Exception("""This space is not allowed in this function, 
-                                    select among Z, W, S""")
-            separation_vectors.append(vectors)
-            
-        return separation_vectors    
     
     def StyleSpace_separation_vector(self, sign=True, num_factors=20, cutout=0.25):
         """ Formula from StyleSpace Analysis """
@@ -78,3 +64,70 @@ class StyleSpace(DisentanglementBase):
         separation_vectors = self.get_original_position_latent(positive_idxs, negative_idxs)
         return separation_vectors
 
+def main():
+    parser = argparse.ArgumentParser(description='Process input arguments')
+    
+    parser.add_argument('--annotations_file', type=str, default='../data/seeds0000-100000.pkl')
+    parser.add_argument('--df_file', type=str, default='../data/color_palette00000-99999.csv')
+    parser.add_argument('--model_file', type=str, default='../data/network-snapshot-005000.pkl')
+    parser.add_argument('--colors_list', nargs='+', default=['Brown', 'Yellow', 'Green', 'Cyan', 'Blue', 'Magenta', 'Red', 'BW'])
+    parser.add_argument('--color_bins', nargs='+', type=int, default=[0, 35, 70, 150, 200, 260, 345, 360])
+    parser.add_argument('--subfolder', type=str, default='StyleSpace/color/')
+    parser.add_argument('--variable', type=str, default='Color')
+    parser.add_argument('--max_lambda', type=int, default=15)
+    parser.add_argument('--seeds', nargs='+', type=int, default=None)
+    
+    args = parser.parse_args()
+    
+    kwargs = {'sign':[True], 'num_factors':[1, 5, 10, 20], 
+              'max_lambda':[args.max_lambda], 'cutout':[False]}
+    
+    with open(args.annotations_file, 'rb') as f:
+        annotations = pickle.load(f)
+
+    df = pd.read_csv(args.df_file).fillna(0)
+    df['seed'] = df['fname'].str.replace('.png', '').str.replace('seed', '').astype(int)
+    df = df.sort_values('seed').reset_index()
+    print(df.head())
+    
+    if 'Color' in df.columns:
+        args.colors_list = df['Color'].unique()
+        
+    with dnnlib.util.open_url(args.model_file) as f:
+        model = legacy.load_network_pkl(f)['G_ema'] # type: ignore
+
+    if args.seeds is None or len(args.seeds) == 0:
+        args.seeds = [random.randint(0,10000) for i in range(10)]
+       
+    disentanglemnet_exp = StyleSpace(model, annotations, df, space='w', 
+                                       colors_list=args.colors_list, color_bins=args.color_bins,
+                                       categorical=True, ##continous experiment not allowed for StyleSpace method
+                                       variable=args.variable)
+    data = []
+    ## save vector in npy and metadata in csv
+    print('Now obtaining separation vector for using StyleSpace on task', args.variable)
+    for sign in kwargs['sign']:
+        for num_factors in kwargs['num_factors']:
+            for cutout in kwargs['cutout']:
+                separation_vectors = disentanglemnet_exp.StyleSpace_separation_vector(sign=sign, num_factors=num_factors, cutout=cutout)
+            
+                features = df[args.variable].unique()
+                print('Checking length of outputted vectors', len(separation_vectors), len(args.colors_list))
+                for i in range(len(separation_vectors)):
+                    print(separation_vectors[i])
+                    print(f'Generating images with variations for {args.variable}, feature: {features[i]}')
+                    name = 'StyleSpace_' + str(sign) + '_' + str(num_factors) + '_' + str(len(args.colors_list)) + '_' + str(args.variable) + '_' + str(cutout)
+                    data.append([features[i], args.variable, 'w', name, args.subfolder, ', '.join(args.colors_list), str(args.color_bins), str(separation_vectors[i])])
+                    for seed in args.seeds:
+                        for eps in kwargs['max_lambda']:
+                            disentanglemnet_exp.generate_changes(seed, separation_vectors[i], min_epsilon=-eps,
+                                                                    max_epsilon=eps, savefig=True, 
+                                                                    feature=str(features[i]), subfolder=args.subfolder, method=name)
+
+   
+    df = pd.DataFrame(data, columns=['Feature', 'Variable', 'Space', 'Method', 'Subfolder', 'Classes', 'Bins', 'Separation Vector'])
+    df.to_csv(DATA_DIR + 'stylespace_separation_vector_'+ args.variable +'.csv', index=False)
+    np.save(DATA_DIR + 'stylespace_separation_vector_'+ args.variable +'.npy', separation_vectors)
+
+if __name__ == "__main__":
+    main()
