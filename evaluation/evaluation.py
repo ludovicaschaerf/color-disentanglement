@@ -109,12 +109,6 @@ if __name__ == '__main__':
     ## save vector in npy and metadata in csv
     print('Now obtaining modifications using directions from', args.df_separation_vectors)
     for i,row in df_separation_vectors.iterrows():
-        variable = row['Variable']
-        space = row['Space']
-        color = row['Feature']
-        method = row['Method']
-        subfolder = row['Subfolder']
-        
         if 'GANSpace' in row['Method']:
             print('Skipping GANSpace')
             continue
