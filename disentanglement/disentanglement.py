@@ -35,7 +35,8 @@ class DisentanglementBase:
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print('Using device', self.device)
         self.repo_folder = repo_folder
-        self.model = model.to(self.device)
+        if model is not None:
+            self.model = model.to(self.device)
         self.annotations = annotations
         self.df = df
         self.space = space

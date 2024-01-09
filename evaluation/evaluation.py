@@ -116,7 +116,8 @@ if __name__ == '__main__':
         separation_vector = np.array([float(x.strip('[] ')) for x in row['Separation Vector'].replace('\n', ' ').split(' ') if x.strip('[] ') != ''])
         
         variation_scores_df = disentanglemnet_eval.obtain_changes(separation_vector, args.seeds, args.max_lambda)
-        df_tmp = pd.concat([row[['Variable', 'Feature', 'Space', 'Method', 'Subfolder']], variation_scores_df], axis=1)
-        df_modifications = pd.concat([df_modifications, df_tmp], axis=0)
-        df_modifications.to_csv(DATA_DIR + 'modifications_'+ args.df_separation_vectors, index=False)
+        for col in ['Variable', 'Feature', 'Space', 'Method', 'Subfolder']:
+            variation_scores_df[col] = row[col]
+        df_modifications = pd.concat([df_modifications, variation_scores_df], axis=0)
+        df_modifications.to_csv(DATA_DIR + 'modifications_'+ args.df_separation_vectors.split('/')[-1], index=False)
     

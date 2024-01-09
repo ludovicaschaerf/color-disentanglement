@@ -4,6 +4,7 @@ import random
 from os.path import join
 import os
 import pickle
+from glob import glob
 import json
 # from sklearn.decomposition import PCA
 # pca = PCA(n_components=3)
@@ -24,7 +25,17 @@ import legacy
 
 annotations_file = DATA_DIR + 'seeds0000-100000.pkl'
 df_file = DATA_DIR + 'color_palette00000-99999.csv'
-df_separation_vectors = DATA_DIR  + 'best_separation_vectors.csv'
+df_scores_vectors = glob(DATA_DIR + 'scores_modifications*')
+df = pd.DataFrame()
+for df_score in df_scores_vectors:
+    df_score_l = pd.read_csv(df_score)
+    df = pd.concat([df, df_score_l], axis=0)
+
+print(df.head())
+df = df.sort_values('Final Score', ascending=False).reset_index()
+df = df.groupby('Feature').first()
+print(df.head())
+
 space = 'w'
 colors_list = None
 color_bins = None
@@ -34,10 +45,6 @@ with open(annotations_file, 'rb') as f:
     annotations = pickle.load(f)
 
 
-df = pd.read_csv(df_file).fillna(0)
-df['seed'] = df['fname'].str.replace('.png', '').str.replace('seed', '').astype(int)
-df = df.sort_values('seed').reset_index()
-print(df.head())
       
 df_separation_vectors = pd.read_csv(df_separation_vectors)
 
