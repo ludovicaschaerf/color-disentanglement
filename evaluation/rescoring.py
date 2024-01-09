@@ -1,253 +1,138 @@
+#!/usr/bin/env python
+
+### srun --pty -n 1 -c 2 --time=01:00:00 --mem=64G bash -l
+
 import argparse
 import pandas as pd
 import pickle
-from DisentanglementBase import rgb2hsv, hex2rgb, DisentanglementBase
 from tqdm import tqdm
 import numpy as np
 import sys
-from scipy import signal
-import cv2
- 
-sys.path.append('backend')
-from color_annotations import extract_color
-from dci import dci
-sys.path.append('.')
 
-import dnnlib 
-import legacy
-import random
+from evaluation import DisentanglementEvaluation
 
-        
-class DisentanglementEvaluation(DisentanglementBase):
+FEATURE2TARGET = {'Brown': 17.5,'Yellow': 52.5, 'Green':110, 'Cyan':175, 'Blue':230, 'Magenta':302.5, 'Red':17.5, 'BW':0}        
+
+class ReScoring(DisentanglementEvaluation):
     def __init__(self, model, annotations, df, space, colors_list, color_bins, compute_s=False, variable='H1', categorical=True, repo_folder='.'):
         super().__init__(model, annotations, df, space, colors_list, color_bins, compute_s, variable, categorical, repo_folder)
     
+    def calculate_color_score_hsv(hue, target_hue, hue_range=50):
+        """
+        Calculate the color score based on how close the hue is to a target hue.
+        :param hue: Hue value of the color (0 to 360)
+        :param target_hue: The target hue to compare against
+        :param hue_range: Acceptable range around the target hue
+        :return: Color score (higher is closer to target color)
+        """
+        adjusted_hue = min(abs(hue - target_hue), 360 - abs(hue - target_hue))
+        if adjusted_hue <= hue_range:
+            return 1 - (adjusted_hue / hue_range)
+        else:
+            return 0
     
-    def obtain_changes(self, separation_vector, seeds, lambda_range=15, method='None', feature='None', subfolder='test'):
-        variation_scores = [[]]*len(seeds)*(lambda_range+1)
-        idx = 0
-        for i,seed in enumerate(tqdm(seeds)):
-            images, lambdas = self.generate_changes(seed, separation_vector, min_epsilon=0, max_epsilon=lambda_range, 
-                                                    count=lambda_range+1, savefig=True, subfolder=subfolder, method=method, feature=feature) 
-            for j, (img, lmb) in enumerate(zip(images, lambdas)):
-                idx += 1
-                if lmb == 0:
-                    try:
-                        img_orig = img
-                        colors_orig = extract_color(img_orig, 5, 1, None)
-                        hsv_orig = list(rgb2hsv(*hex2rgb(colors_orig[0])))
-                        top_three_colors = colors_orig[:3]
-                        color_orig = range2color(*hsv_orig, self.colors_list, self.color_bins)
-                        img_orig_norm = cv2.normalize(np.array(img_orig.convert('L')), None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-                        img_norm = cv2.normalize(np.array(img.convert('L')), None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-                        cor = cv2.filter2D(img_orig_norm, ddepth=-1, kernel=img_norm)
-                        cor = np.max(cor)
-                        print('seed ', seed, 'orig HSV', hsv_orig, ', color:', color_orig, ', moving in dir:', feature, ', self corr:', cor)
-                        variation_scores[idx] = [seed, lmb, hsv_orig, color_orig, cor, top_three_colors]
-                    except Exception as e:
-                        print('No colors could be found for the original image', e)
-                else:
-                    try:
-                        colors = extract_color(img, 5, 1, None)
-                        hsv = list(rgb2hsv(*hex2rgb(colors[0])))
-                        top_three_colors = colors[:3]
-                        color = range2color(*hsv, self.colors_list, self.color_bins)
-                        #cor = signal.correlate2d(np.array(img_orig.convert('L')), np.array(img.convert('L')), mode='full', boundary='fill')
-                        # convert to float32
-                        img_orig_norm = cv2.normalize(np.array(img_orig.convert('L')), None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-                        img_norm = cv2.normalize(np.array(img.convert('L')), None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-                        cor = cv2.filter2D(img_orig_norm, ddepth=-1, kernel=img_norm)
-                        cor = np.max(cor)
-                        print('seed ', seed, 'img HSV', hsv, ', orig color:', color_orig, ', color now:', color, ', moving in dir:', feature, ', corr to orig img:', cor)
-                        variation_scores[idx] = [seed, lmb, hsv, color, cor, top_three_colors]
-                    except Exception as e:
-                        print('Failed other image extraction', e)
-        return variation_scores
+    def plot_hues_per_lambda(variations, feature, variable='Color'):
+        variations = variations[variations[variable] == feature]
+        for lambd, group in variations.groupy('Lambda'):
+            color_hues = [col[0] for col in group['H1']]  
+            print(color_hues)
+            hue_wheel_image = plt.imread(DATA_DIR + 'Linear_RGB_color_wheel.png')
+            hue_wheel_image = resize(hue_wheel_image, (256,256))
+            # Display the hue wheel image
+            fig, ax = plt.subplots(dpi=80)
+            ax.imshow(hue_wheel_image)
+            ax.axis('off')  # Turn off axis
+            # Assuming the center of the hue wheel and the radius are known
+            center_x, center_y, radius = 128, 128, 126
+            # Define your color hues in degrees
             
-    def re_scoring_categorical(self, all_variations, color, method, subfolder):
-        # Implement your categorical evaluation logic here
-        ### TODO formulate into rescoring analysis of InterfaceGAN
-        ### change to equal ranges
-        all_variations = all_variations[all_variations['color_vector'] == color][
-            all_variations['method'] == method][all_variations['subfolder'] == subfolder
-            ]
+            # Convert degrees to radians and plot the radii
+            for i, hue in enumerate(color_hues):
+                # Calculate the end point of the radius
+                end_x = center_x + radius * np.cos(np.radians(hue - 90))
+                end_y = center_y + radius * np.sin(np.radians(hue - 90))
+
+                # Plot a line from the center to the edge of the hue wheel
+                ax.plot([center_x, end_x], [center_y, end_y], 'w-', markersize=4)  # 'w-' specifies a white line
+                ax.plot([end_x], [end_y], color=colors[i], marker='o', markerfacecolor=colors[i], markersize=15)  # 'w-' specifies a white line
             
-        all_variations.loc[all_variations[all_variations['color'] == all_variations['color_vector']].index, 'score'] = 1
-        all_variations.loc[all_variations[all_variations['color'] != all_variations['color_vector']].index, 'score'] = 0
-        
-        print(all_variations['score'].value_counts())
-        
+            os.makedirs(join(self.repo_folder, 'figures'), exist_ok=True)
+            plt.savefig(join(self.repo_folder, 'figures', f'{feature}_at_lambda_{lambd}.png'))
+            plt.close() 
+    
+    def re_scoring_categorical(self, variations, feature, variable='Color', broad=False):
+        # Categorical evaluation 
+        variations = variations[variations['Feature'] == feature]
+            
+        if not broad:
+            variations.loc[variations[variations['Feature'] == variations[variable]].index, 'score'] = 1
+            variations.loc[variations[variations['Feature'] != variations[variable]].index, 'score'] = 0
+            print(variations['score'].value_counts())
+        else:
+            tolerance = 50 if features != 'BW' else 1
+            variations['score'] = [calculate_color_score_hsv(hue, FEATURE2TARGET[feature], tolerance) for hue in variations[variable]]
+            
         scores = {}
-        scores_all = np.round(all_variations[all_variations['lambda'] != 0]['score'].mean(), 3)
-        scores_per_lambda = [np.round(all_variations[all_variations['lambda'] == l]['score'].mean() - all_variations[all_variations['lambda'] == 0]['score'].mean(), 3)
+        scores_all = np.round(variations[variations['lambda'] != 0]['score'].mean(), 3)
+        scores_per_lambda = [np.round(variations[variations['lambda'] == l]['score'].mean() - variations[variations['lambda'] == 0]['score'].mean(), 3)
                                 for l in range(1, 16)]
         
         
         return scores_all, scores_per_lambda
             
-        
-    def DCI(self):
-        factors = self.df[self.variable]#.values.reshape((len(self.df[self.variable].values), 1))
-        codes = self.get_encoded_latent()
-        factors_color = []
-        print(factors.shape, codes.shape)
-        for color in self.colors_list:
-            if color != 'BW':
-                color_range = color2range(color, self.colors_list, self.color_bins)
-                tmp = factors.map(lambda x: range2continuous(x, color_range['h']))
-                print(tmp.value_counts())
-                factors_color.append(tmp.values)
-            elif color == 'BW':
-                factors_s = np.abs(100 - self.df['S1'])
-                print(factors_s.value_counts())
-                factors_color.append(factors_s.values)
-        factors_color = np.array(factors_color).T
-        print(factors_color.shape)
-        disentanglement, completeness, informativeness = dci(factors_color, codes)
-        # Implement your custom metric 1 evaluation logic here
-        # You can use specific techniques for this metric and call generate_changes if needed.
-        ## Best metric on model disentanglement for a certain feature from Measuring Disentanglement: DCI
-        return disentanglement, completeness, informativeness
+    def re_scoring_continuous(self, variations, variable='S1'):
+        # Continuous evaluation 
+        # Re-scoring formula from Semantic Hierarchy emerges
+        mean_var = {}
+        for i, group in variations.groupby('Lambda'):
+            mean_var[i] = group[variable].mean()
+        scores_per_lambda = [np.round(max(mean_var[i] - mean_var[0], 0), 3)
+                                for l in range(1, 16)]
+        scores_all = np.round(np.mean(np.array(scores_per_lambda)), 3)
+        return scores_all, scores_per_lambda
     
-    def AD(self):
-        # Implement your custom metric 2 evaluation logic here
-        # You can use specific techniques for this metric and call generate_changes if needed.
-        ## AD & Comparison between found vectors using coviariance in InterFaceGAN
-        return ''
-        
-    def structural_coherence(self, im1, im2):
-        # Implement your custom metric 3 evaluation logic here
-        # You can use specific techniques for this metric and call generate_changes if needed.
-        ## struct coherence
-        img_orig_norm = cv2.normalize(np.array(im1.convert('L')), None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-        img_norm = cv2.normalize(np.array(im2.convert('L')), None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-        cor = cv2.filter2D(img_orig_norm, ddepth=-1, kernel=img_norm)
-        cor = np.max(cor)
-                        
-        return cor
 
-    def re_scoring_continuous(self, separation_vector, seeds, lambd):
-        # Implement your continuous evaluation logic here
-        ### Re-scoring formula from Semantic Hierarchy emerges...
-        print('To reimplement')
-        increase = 0
-        samples = len(seeds)
-        for seed in tqdm(seeds):
-            images, lambdas = self.generate_changes(seed, separation_vector, min_epsilon=-lambd, max_epsilon=lambd, count=5, savefig=False) 
-            try:
-                colors_orig = extract_color(images[2], 5, 1, None)
-                hsv = list(rgb2hsv(*hex2rgb(colors_orig[0])))
-                for j,val in enumerate(['h', 's', 'v']):
-                    if val == variable:
-                        if color_range[val] is not None:
-                            for i in [0,1,3,4]:
-                                colors_changed = extract_color(images[i], 5, 1, None)
-                                hsvp = list(rgb2hsv(*hex2rgb(colors_changed[0])))
-                                increase += max(0, hsvp[j] - hsv[j])
-            except Exception as e:
-                print(e)
-            print(increase, samples)
-            return np.round(increase / samples, 2)
-            
-if __name__ == '__main__':
-    print('Disentanglement evaluation starting')
-    
+if __name__ == '__main__':          
     parser = argparse.ArgumentParser(description='Process input arguments')
     
-    parser.add_argument('--annotations_file', type=str, default='data/textile_annotated_files/seeds0000-100000.pkl')
-    parser.add_argument('--df_file', type=str, default='data/textile_annotated_files/final_sim_seeds0000-100000.csv')
-    parser.add_argument('--model_file', type=str, default='data/textile_model_files/network-snapshot-005000.pkl')
-    parser.add_argument('--df_separation_vectors', type=str, default='data/separation_vector_textile.csv') #
-    parser.add_argument('--seeds', nargs='+', type=int, default=None)
-    parser.add_argument('--obtain_changes', type=bool, default=False)
-    parser.add_argument('--obtain_dci', type=bool, default=False)
-    parser.add_argument('--lambdas', type=int, default=15)
-
-    args = parser.parse_args()
+    parser.add_argument('--annotations_file', type=str, default='../data/seeds0000-100000.pkl')
+    parser.add_argument('--df_file', type=str, default='../data/color_palette00000-99999.csv')
+    parser.add_argument('--df_separation_vectors', type=str, default='../data/shapleyvec_separation_vector_Color.csv') #
     
-    print(args.obtain_changes, 'obtain changes?')
+    args = parser.parse_args()
     with open(args.annotations_file, 'rb') as f:
         annotations = pickle.load(f)
 
-    df = pd.read_csv(args.df_file).fillna('#000000')
-    df.columns = [df.columns[0], 'top1col', 'top2col', 'top3col']
+    df = pd.read_csv(args.df_file).fillna(0)
+    df['seed'] = df['fname'].str.replace('.png', '').str.replace('seed', '').astype(int)
+    df = df.sort_values('seed').reset_index()
+    print(df.head())
     
-    with dnnlib.util.open_url(args.model_file) as f:
-        model = legacy.load_network_pkl(f)['G_ema'] # type: ignore
-
     if args.seeds is None or len(args.seeds) == 0:
-        args.seeds = [random.randint(0,100000) for i in range(200)]
+        args.seeds = [random.randint(0,10000) for i in range(100)]
        
-    df_separation_vectors = pd.read_csv(args.df_separation_vectors)
-    
-    categorical_accuracies = []
-    categorical_accuracies_per_lambda = []
-    all_variations = pd.DataFrame([], columns=['seed', 'lambda', 'hsv', 'color', '2dcorr', 'color_vector', 'method',
-                                                'subfolder', 'colors_list', 'color_bins', 'variable', 'space'])
-    for i,row in df_separation_vectors.iterrows():
-        if i == 0:
-            colors_list = row['Classes'].split(', ')
-            color_bins = [int(x.strip('[]')) for x in row['Bins'].split(', ')]
-            variable = row['Variable']
-            space = row['Space']
-            disentanglemnet_eval = DisentanglementEvaluation(model, annotations, df, space=space, colors_list=colors_list, color_bins=color_bins, variable=variable) 
-            if args.obtain_dci:
-                disentanglement, completeness, informativeness = disentanglemnet_eval.DCI()
-                print(disentanglement, completeness, informativeness)
-        
-        color = row['Feature']
-        method = row['Method']
-        subfolder = row['Subfolder']
-        
-        if 'GANSpace' in method:
-            print('Skipping GANSpace')
-            continue
-        if 'XGB' in method:
-            print('Skipping XGB')
-            continue
-        
-        separation_vector = np.array([float(x.strip('[] ')) for x in row['Separation Vector'].replace('\n', ' ').split(' ') if x.strip('[] ') != ''])
-        
-        color_range = color2range(color, colors_list, color_bins)
-        
-        if args.obtain_changes:
-            variation_scores = disentanglemnet_eval.obtain_changes(separation_vector, args.seeds, args.lambdas, method, color)
-            var_scores_df = pd.DataFrame(variation_scores, columns=['seed', 'lambda', 'hsv', 'color', '2dcorr', 'top_three_colors'])
-            var_scores_df['color_vector'] = color
-            var_scores_df['method'] = method
-            var_scores_df['subfolder'] = subfolder
-            var_scores_df['colors_list'] = str(colors_list)
-            var_scores_df['color_bins'] = str(color_bins)
-            var_scores_df['variable'] = variable
-            var_scores_df['space'] = space
-            all_variations = pd.concat([all_variations, var_scores_df], axis=0)
-            print(all_variations.head())
-            all_variations.to_csv('data/variations_new_'+ color + '_' + method + '_' + subfolder + '.csv', index=False)
-        else:
-            try:
-                all_variations = pd.read_csv('data/variations_new_'+ color + '_' + method + '_' + subfolder + '.csv')
-            except:
-                break
-            
-        try:
-            categorical_accuracy, categorical_accuracy_per_lambda = disentanglemnet_eval.re_scoring_categorical(all_variations, color, method, subfolder)
-            print(categorical_accuracy, len(categorical_accuracy_per_lambda))
-            categorical_accuracies.append(categorical_accuracy)
-            categorical_accuracies_per_lambda.append(categorical_accuracy_per_lambda)
-        except Exception as e:
-            print(e)
-    
-    print(len(categorical_accuracies), len(categorical_accuracies_per_lambda))
-    df_separation_vectors.loc[:len(categorical_accuracies), 'categorical_accuracy'] = categorical_accuracies
-    df_separation_vectors.loc[:len(categorical_accuracies), [f'categorical_accuracy_lambda_{i}' for i in range(1,16)]] = categorical_accuracies_per_lambda
-    if args.obtain_dci:
-        df_separation_vectors['disentanglement'] = disentanglement
-        df_separation_vectors['completeness'] = completeness
-        df_separation_vectors['informativeness'] = informativeness
-        
-    df_separation_vectors.to_csv('data/scores_new_'+subfolder+'.csv', index=False)
-    
+    df_modification_vectors = pd.read_csv('modifications_' + args.df_separation_vectors)
 
+    disentanglemnet_eval = ReScoring(None, annotations, df, space='w', color_bins=None, colors_list=None)
+    scores = []
+    
+    for method, group in df_modification_vectors.groupby('Method'):
+        variable = list(group['Variable'].unique())[0]
+        if 'S' in variable or 'V' in variable:
+            scores_all, scores_per_lambda = disentanglemnet_eval.re_scoring_continuous(group,
+                                                                                       variable=variable)
+            scores.append([method, variable, None, None, scores_all] + scores_per_lambda)
+        else:
+            for feature in list(group['Feature'].unique()):
+                scores_all, scores_per_lambda = disentanglemnet_eval.re_scoring_categorical(group, feature, variable, False)
+                scores.append([method, variable, feature, False, scores_all] + scores_per_lambda)
+                if variable == 'Color':
+                    scores_all_b, scores_per_lambda_b = disentanglemnet_eval.re_scoring_categorical(group, feature, variable, True)
+                    plot_hues_per_lambda(group, feature)
+                    scores.append([method, variable, feature, True, scores_all_b] + scores_per_lambda_b)
+                
+        df = pd.DataFrame(scores, columns=['Method', 'Variable', 'Feature', 'Broad', 'Total Score'] + [f'Score Lambda {i}' for i in range(1,16)])
+        df.to_csv(DATA_DIR + 'scores_'+ args.df_separation_vectors, index=False)
     
         
-        
+

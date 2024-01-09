@@ -118,8 +118,5 @@ if __name__ == '__main__':
         variation_scores_df = disentanglemnet_eval.obtain_changes(separation_vector, args.seeds, args.max_lambda)
         df_tmp = pd.concat([row[['Variable', 'Feature', 'Space', 'Method', 'Subfolder']], variation_scores_df], axis=1)
         df_modifications = pd.concat([df_modifications, df_tmp], axis=0)
-
-
-    df = pd.DataFrame(data, columns=['Feature', 'Variable', 'Space', 'Method', 'Subfolder', 'Classes', 'Bins', 'Separation Vector'])
-    df.to_csv(DATA_DIR + 'modifications_'+ args.df_separation_vectors, index=False)
+        df_modifications.to_csv(DATA_DIR + 'modifications_'+ args.df_separation_vectors, index=False)
     

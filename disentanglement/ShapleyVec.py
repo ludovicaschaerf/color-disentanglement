@@ -137,7 +137,7 @@ def main():
 
     args = parser.parse_args()
     
-    kwargs = {'weighted':[True, False], 'variation':[0.25, 0.5], 
+    kwargs = {'weighted':[True], 'variation':[0.25, 0.5], 
               'max_lambda':[args.max_lambda], 'method':['LR']}
     
     with open(args.annotations_file, 'rb') as f:

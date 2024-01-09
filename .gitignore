@@ -27,8 +27,8 @@ share/python-wheels/
 MANIFEST
 
 data/network-snapshot-005000.pkl
-data/seeds000-100000.pkl
-
+data/seeds0000-100000.pkl
+figures/
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
