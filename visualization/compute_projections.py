@@ -78,8 +78,8 @@ for color in colors_list:
     x_col = X_color[:100, :]
     points_per_color[color] = [[float(x) for x in xx] for xx in x_col]
 
-with open(EXPORT_DIR + "3d_points.json", "w") as outfile: 
-    json.dump(points_per_color, outfile)
+# with open(EXPORT_DIR + "3d_points.json", "w") as outfile: 
+#     json.dump(points_per_color, outfile)
     
 
 points_per_color = {}
@@ -89,17 +89,20 @@ for color in colors_list:
     x_col = X_color[:100, :]
     points_per_color[color] = [[float(x) for x in xx] for xx in x_col]
 
-with open(EXPORT_DIR + "512d_points.json", "w") as outfile: 
-    json.dump(points_per_color, outfile)
+# with open(EXPORT_DIR + "512d_points.json", "w") as outfile: 
+#     json.dump(points_per_color, outfile)
     
 Xx = np.array([np.array([float(x.strip('[] ')) for x in row['Separation Vector'].replace('\n', ' ').split(' ') if x.strip('[] ') != '']) for i, row in df_scores.iterrows()])
 
 sampled_points_3d = {}
 color_orig_vec = {}
 for sep_vec, col in zip(Xx, df_scores['Feature']):
-    color_orig_vec[col] = list(sep_vec)
     if col == 'S1' or col == 'V1':
         color_orig_vec['-'+col] = list(-sep_vec)
+    elif col == 'BW':
+        color_orig_vec['grey'] = list(sep_vec)
+    else:
+        color_orig_vec[col.lower()] = list(sep_vec)
     
     # Define the direction vector (unit vector)
     direction_vector = sep_vec  # Normalize to ensure it's a unit vector
