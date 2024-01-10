@@ -10,7 +10,7 @@ import sys
 # from sklearn.decomposition import PCA
 # pca = PCA(n_components=3)
 
-EXPORT_DIR = 'LatentSpaceNavigator/src/public/'
+EXPORT_DIR = 'LatentSpaceNavigator/ui/public/'
 DATA_DIR = '../data/'
 
 sys.path.append('../disentanglement')
@@ -98,6 +98,9 @@ sampled_points_3d = {}
 color_orig_vec = {}
 for sep_vec, col in zip(Xx, df_scores['Feature']):
     color_orig_vec[col] = list(sep_vec)
+    if col == 'S1' or col == 'V1':
+        color_orig_vec['-'+col] = list(-sep_vec)
+    
     # Define the direction vector (unit vector)
     direction_vector = sep_vec  # Normalize to ensure it's a unit vector
 
@@ -146,8 +149,15 @@ for sep_vec, col in zip(Xx, df_scores['Feature']):
     sampled_points_3d_vec = pca.transform(sampled_points.reshape(1,-1))
     sampled_points_3d_unit[col] = list(sampled_points_3d_vec[0])
     # Now, 'sampled_points' contains the sampled points along the direction vector
+
+with open(EXPORT_DIR + "3d_directions.json", "r") as infile: 
+    direction_points_3d = json.load(infile)
     
-direction_points_3d = {k:list(np.array(v) - np.array(starting_point_3d)) for k,v in sampled_points_3d_unit.items()}
+for k,v in sampled_points_3d_unit.items():
+    if k == 'S1' or k == 'V1':
+        direction_points_3d['-'+k]['direction'] = list(-(np.array(v) - np.array(starting_point_3d)))
+    direction_points_3d[k]["direction"] = list(np.array(v) - np.array(starting_point_3d))
+
 
 with open(EXPORT_DIR + "3d_directions.json", "w") as outfile: 
     json.dump(direction_points_3d, outfile)
