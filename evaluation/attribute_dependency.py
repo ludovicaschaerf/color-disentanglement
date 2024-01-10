@@ -81,7 +81,7 @@ class AttributeDependency(ReScoring):
         sns.heatmap(np.array(confusion_matrix).astype(int), annot=True, fmt="d", cmap='viridis',
                     yticklabels=colors, 
                     xticklabels=colors)
-        plt.title(f"Confusion Matrix ({method})")
+        plt.title(f"Confusion Matrix ({method} lambda {lambd})")
         plt.xlabel("Final Color" if variable1 == 'Color' else variable1)
         plt.ylabel("Direction Color" if variable2 == 'Feature' else variable2)
         plt.tight_layout()
@@ -123,8 +123,9 @@ if __name__ == '__main__':
         elif variable == 'Color':
             for feature in list(group['Feature'].unique()):
                 optimal_lambda = disentanglemnet_eval.calculate_optimal_lambda(group[group['Feature'] == feature])
-                # disentanglemnet_eval.plot_hues_per_lambda(group, feature, method)
-            disentanglemnet_eval.heatmap_per_colors(group, optimal_lambda, method, variable1='Color', variable2='Feature')
-            disentanglemnet_eval.heatmap_per_colors(group, optimal_lambda, method, variable1='Color', variable2='Color original')
+                disentanglemnet_eval.plot_hues_per_lambda(group, feature, method)
+            for lambd in range(1,16):
+                disentanglemnet_eval.heatmap_per_colors(group[group['lambda'] == lambd], lambd, method, variable1='Color', variable2='Feature')
+                disentanglemnet_eval.heatmap_per_colors(group[group['lambda'] == lambd], lambd, method, variable1='Color', variable2='Color original')
             
        

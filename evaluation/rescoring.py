@@ -81,7 +81,7 @@ class ReScoring(DisentanglementEvaluation):
         mean_var = {}
         for i, group in variations.groupby('lambda'):
             mean_var[i] = group[variable].mean()
-        scores_per_lambda = [np.round(max(mean_var[i] - mean_var[0], 0), 3)
+        scores_per_lambda = [np.round(max(mean_var[l] - mean_var[0], 0) / 100, 3)
                                 for l in range(1, 16)]
         scores_all = np.round(np.mean(np.array(scores_per_lambda)), 3)
         return scores_all, scores_per_lambda
