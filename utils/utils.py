@@ -1,6 +1,7 @@
 import pandas as pd
 import extcolors
 from colormap import rgb2hex
+import os
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -45,17 +46,18 @@ def plot_color_palette(outpath, zoom, list_precent, text_c, list_color, input_im
     bg = 'bg.png'
     fig, ax = plt.subplots(figsize=(192,108),dpi=10)
     fig.set_facecolor('white')
-    plt.savefig(bg)
+    os.makedirs(outpath, exist_ok=True)
+    plt.savefig(outpath + bg)
     plt.close(fig)
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(160,120), dpi = 10)
         
     #donut plot
     wedges, text = ax1.pie(list_precent,
-                            labels=text_c,
-                            labeldistance= 1.05,
-                            colors=list_color,
-                            textprops={'fontsize': 150, 'color':'black'})
+                           labels = text_c,
+                           labeldistance = 1.05,
+                           colors =list_color,
+                           textprops = {'fontsize': 150, 'color':'black'})
     plt.setp(wedges, width=0.3)
 
     #add image in the center of donut plot
@@ -80,14 +82,14 @@ def plot_color_palette(outpath, zoom, list_precent, text_c, list_color, input_im
 
     fig.set_facecolor('white')        
     ax2.axis('off')
-    bg = plt.imread('bg.png')
+    bg = plt.imread(outpath + bg)
     plt.imshow(bg)       
     plt.tight_layout()
-    plt.savefig(outpath)
+    plt.savefig(outpath + input_image.split('/')[-1])
     plt.close(fig)
 
 def cat_from_hue(hues, saturations, values, 
-                 colors_list=['Brown', 'Yellow', 'Green', 'Cyan', 'Blue', 'Magenta', 'Red', 'BW'],
+                 colors_list=['Red', 'Yellow', 'Green', 'Cyan', 'Blue', 'Purple', 'Magenta', 'BW'],
                  color_bins=[0, 35, 70, 150, 200, 260, 345, 360]):
     if 'BW' in colors_list:
         if color_bins is None:

@@ -15,8 +15,10 @@ import copy
 import numpy as np
 import torch
 import dnnlib
-from torch_utils import misc
-
+import torch_utils
+# import sys
+# print(sys.path)
+# sys.path.append('/home/ludosc/ludosc/color-disentanglement/models/stylegan')
 #----------------------------------------------------------------------------
 
 def load_network_pkl(f, force_fp16=False):
@@ -53,7 +55,7 @@ def load_network_pkl(f, force_fp16=False):
             fp16_kwargs.conv_clamp = 256
             if kwargs != old.init_kwargs:
                 new = type(old)(**kwargs).eval().requires_grad_(False)
-                misc.copy_params_and_buffers(old, new, require_all=True)
+                torch_utils.misc.copy_params_and_buffers(old, new, require_all=True)
                 data[key] = new
     return data
 
@@ -84,7 +86,7 @@ def _collect_tf_params(tf_net):
 #----------------------------------------------------------------------------
 
 def _populate_module_params(module, *patterns):
-    for name, tensor in misc.named_params_and_buffers(module):
+    for name, tensor in torch_utils.misc.named_params_and_buffers(module):
         found = False
         value = None
         for pattern, value_fn in zip(patterns[0::2], patterns[1::2]):

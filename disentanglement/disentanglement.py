@@ -11,6 +11,9 @@ from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
+import torch
+from torchvision.transforms.functional import to_pil_image
+
 from tqdm import tqdm
 import random
 from os.path import join
@@ -125,6 +128,8 @@ class DisentanglementBase:
             X = np.array(self.annotations['w_vectors']).reshape((len(self.annotations['w_vectors']), 512))
         elif self.space.lower() == 'z':
             X = np.array(self.annotations['z_vectors']).reshape((len(self.annotations['z_vectors']), 512))
+        elif self.space.lower() == 'h':
+            X = np.array(self.annotations['unet_space']).reshape((len(self.annotations['unet_space']), 2*8*8*32))
         elif self.space.lower() == 's':
             concat_v = []
             for i in range(len(self.annotations['w_vectors'])):
@@ -203,6 +208,11 @@ class DisentanglementBase:
             
         return separation_vectors    
     
+    def get_original_position_diffusion(self, flattened_vector):
+        # Reconstruct the latent direction
+        separation_vectors = np.array(flattened_vector).reshape((len(self.annotations['unet_space']), 2, 32, 8, 8))
+        return separation_vectors    
+    
     def generate_images(self, seed, separation_vector=None, lambd=0):
         """
         The generate_original_image function takes in a latent vector and the model,
@@ -238,6 +248,25 @@ class DisentanglementBase:
             
         img = (img.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
         return PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB')
+
+    def generate_images_diffusion(self, prompt, separation_vector=None, lambd=0):
+        """
+        The generate_original_image function takes in a latent vector and the model,
+        and returns an image generated from that latent vector.
+        
+        
+        :param z: Generate the image
+        :param model: Generate the image
+        :return: A pil image
+        :doc-author: Trelent
+        """
+        # Load the model and tokenizer
+        
+        
+        # Generate an image
+        image = self.model(prompt).images[0]
+
+        return image
 
     def forward_from_style(self, x, styles, layer):
         """Custom image generation using style layers of the network"""
@@ -290,7 +319,7 @@ class DisentanglementBase:
             
         return img
 
-    def generate_changes(self, seed, separation_vector, min_epsilon=-3, max_epsilon=3, count=7, savefig=True, subfolder='baseline', feature=None, method=None, save_separately=False):
+    def generate_changes(self, seed, separation_vector, min_epsilon=-3, max_epsilon=3, count=7, savefig=True, subfolder='baseline', feature=None, method=None, save_separately=False, prompt=None):
         """
         The regenerate_images function takes a model, z, and decision_boundary as input.  It then
         constructs an inverse rotation/translation matrix and passes it to the generator.  The generator
@@ -315,7 +344,8 @@ class DisentanglementBase:
                 images.append(self.generate_flexible_images(seed, separation_vector=separation_vector, lambd=lambd))
             elif self.space.lower() in ['z', 'w']:
                 images.append(self.generate_images(seed, separation_vector=separation_vector, lambd=lambd))
-        
+            elif self.space.lower() == 'h':
+                images.append(self.generate_images_diffusion(prompt, separation_vector=separation_vector, lambd=lambd))
         if savefig:
             os.makedirs(join(self.repo_folder, 'figures', subfolder), exist_ok=True)
             fig, axs = plt.subplots(1, len(images), figsize=(110,20))

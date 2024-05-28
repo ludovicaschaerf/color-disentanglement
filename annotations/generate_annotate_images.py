@@ -13,7 +13,6 @@ import re
 from typing import List, Optional, Tuple, Union
 from transformers import PretrainedConfig
 import click
-import dnnlib
 import numpy as np
 import PIL.Image
 import torch
@@ -25,14 +24,13 @@ DATA_DIR = '../data/'
 
 from color_annotations import *
 
-import legacy
 sys.path.append('../utils')
 from utils import *
 
-sys.path.append('../stylegan')
-from networks_stylegan3 import *
+sys.path.insert(0, '/shares/weddigen.ki.phf.uzh/ludosc/color-disentanglement/stylegan')
 import dnnlib 
 import legacy
+from networks_stylegan3 import *
 
 #----------------------------------------------------------------------------
 
@@ -163,23 +161,25 @@ def generate_annotate_images(
         img = PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB')
         if save:
             img.save(f'{outdir}/seed{seed:05d}.png')
-        
-        colors_x = extcolors.extract_from_path(im, tolerance=8, limit=13)
+
+
+        # colors_x = extcolors.extract_from_path(im, tolerance=8, limit=13)
+        K = 8
+        colors_x = adaptive_clustering_2(img, K=K)
         df_color = color_to_df(colors_x)
+        print(df_color.head())
         top_cols = extract_color(df_color)
-        top_cols_no_black = [cc[0] for cc in top_cols if (cc[1] != 0) and (cc[2] != 0) and (cc[0] != 0)]
         top_cols_filtered = [cc[0] for cc in top_cols if (cc[1] != 0) and (cc[2] != 0)]
         harmonies = extract_harmonies(top_cols_filtered)
-        colours.append([f'{outdir}/seed{seed:05d}.png'] +[c for cc in top_cols_no_black for c in cc]+harmonies)
-        if i % 1000 == 0:
-            df = pd.DataFrame(colours, columns=['fname', 'H1', 'S1', 'V1', 'H2', 'S2', 'V2', 'H3', 'S3', 'V3',
-                                                'H4', 'S4', 'V4', 'H5', 'S5', 'V5', 'Monochromatic', 
+        hsvs_names = [[f'H{str(i)}', f'S{str(i)}', f'V{str(i)}'] for i in range(1,K+1)]
+        hsvs_names = [x for xs in hsvs_names for x in xs]
+        colours.append([f'{outdir}/seed{seed:05d}.png'] +[c for cc in top_cols for c in cc]+harmonies)
+        if seed_idx % 10 == 0:
+            df = pd.DataFrame(colours, columns=['fname', *hsvs_names, 'Monochromatic', 
                                                 'Analogous', 'Complementary', 'Triadic', 'Split Complementary',
                                                 'Double Complementary'])
-            df['Color'] = cat_from_hue(df['H1'], df['S1'], df['V1'])
+            df['Color'] = cat_from_hue(np.array(df['H1'].values), df['S1'], df['V1'])
             print(df.head())
-            print(df['Triadic'].value_counts())
-            print(df['Double Complementary'].value_counts())
             df.to_csv(DATA_DIR + f'color_palette{seeds[0]:05d}-{seeds[-1]:05d}.csv', index=False)
         
     info = {'fname': fnames, 'seeds':seeds, 'z_vectors': z_vals, 'w_vectors': w_vals}
