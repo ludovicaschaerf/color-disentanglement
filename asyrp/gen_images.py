@@ -51,7 +51,7 @@ def save_bottleneck_latents(module, input, output):
 input_bottleneck_latents = None
 
 # Define a directory to save images and their latent spaces
-save_dir = 'latents'
+save_dir = '../data'
 os.makedirs(save_dir, exist_ok=True)
 hook = pipe.unet.down_blocks[0].register_forward_hook(save_input_bottleneck_latents)
 hook_2 = pipe.unet.mid_block.register_forward_hook(save_bottleneck_latents)
@@ -63,7 +63,8 @@ for additional_feature in tqdm(additional_features):
     image_filename = 'images/' + additional_feature.replace(' ', '_').replace('/', '_')[:1000] + ".png"
     image.save(image_filename)
     
-
+    print(bottleneck_latents.numpy().shape)
+    print(input_bottleneck_latent.numpy().shape)
     # Add data to the dictionary
     latent_dict['unet_space'].append(bottleneck_latents.numpy())
     latent_dict['unet_orig_space'].append(input_bottleneck_latent.numpy())

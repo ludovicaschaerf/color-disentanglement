@@ -10,7 +10,6 @@
 
 import os
 import re
-from typing import List, Optional, Tuple, Union
 from transformers import PretrainedConfig
 import click
 import numpy as np
@@ -19,10 +18,11 @@ import torch
 import pickle
 import cv2
 from tqdm import tqdm
+import re
 import pandas as pd
 DATA_DIR = '../data/'
 
-from color_annotations import *
+from annotate_images import *
 
 sys.path.append('../utils')
 from utils import *
@@ -31,52 +31,6 @@ sys.path.insert(0, '/shares/weddigen.ki.phf.uzh/ludosc/color-disentanglement/sty
 import dnnlib 
 import legacy
 from networks_stylegan3 import *
-
-#----------------------------------------------------------------------------
-
-def parse_range(s: Union[str, List]) -> List[int]:
-    '''Parse a comma separated list of numbers or ranges and return a list of ints.
-
-    Example: '1,2,5-10' returns [1, 2, 5, 6, 7]
-    '''
-    if isinstance(s, list): return s
-    ranges = []
-    range_re = re.compile(r'^(\d+)-(\d+)$')
-    for p in s.split(','):
-        m = range_re.match(p)
-        if m:
-            ranges.extend(range(int(m.group(1)), int(m.group(2))+1))
-        else:
-            ranges.append(int(p))
-    return ranges
-
-#----------------------------------------------------------------------------
-
-def parse_vec2(s: Union[str, Tuple[float, float]]) -> Tuple[float, float]:
-    '''Parse a floating point 2-vector of syntax 'a,b'.
-
-    Example:
-        '0,1' returns (0,1)
-    '''
-    if isinstance(s, tuple): return s
-    parts = s.split(',')
-    if len(parts) == 2:
-        return (float(parts[0]), float(parts[1]))
-    raise ValueError(f'cannot parse 2-vector {s}')
-
-#----------------------------------------------------------------------------
-
-def make_transform(translate: Tuple[float,float], angle: float):
-    m = np.eye(3)
-    s = np.sin(angle/360.0*np.pi*2)
-    c = np.cos(angle/360.0*np.pi*2)
-    m[0][0] = c
-    m[0][1] = s
-    m[0][2] = translate[0]
-    m[1][0] = -s
-    m[1][1] = c
-    m[1][2] = translate[1]
-    return m
 
 #----------------------------------------------------------------------------
 
@@ -89,6 +43,7 @@ def make_transform(translate: Tuple[float,float], angle: float):
 @click.option('--translate', help='Translate XY-coordinate (e.g. \'0.3,1\')', type=parse_vec2, default='0,0', show_default=True, metavar='VEC2')
 @click.option('--rotate', help='Rotation angle in degrees', type=float, default=0, show_default=True, metavar='ANGLE')
 @click.option('--outdir', help='Where to save the output images', type=str, required=True, metavar='DIR')
+@click.option('--k', help='Numbers of colors', type=int, required=True, metavar='DIR', default=8)
 @click.option('--save', help='Store the generated file', type=bool, required=True, metavar='SAVE')
 def generate_annotate_images(
     network_pkl: str,
@@ -99,7 +54,8 @@ def generate_annotate_images(
     translate: Tuple[float,float],
     rotate: float,
     save: bool,
-    class_idx: Optional[int]
+    class_idx: Optional[int],
+    k: Optional[int]
 ):
     """Generate images using pretrained network pickle.
 
@@ -116,6 +72,7 @@ def generate_annotate_images(
         --network=https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-metfacesu-1024x1024.pkl
     """
 
+    print('Saving', save)
     print('Loading networks from "%s"...' % network_pkl)
     device = torch.device('cuda')
     with dnnlib.util.open_url(network_pkl) as f:
@@ -163,26 +120,11 @@ def generate_annotate_images(
             img.save(f'{outdir}/seed{seed:05d}.png')
 
 
-        # colors_x = extcolors.extract_from_path(im, tolerance=8, limit=13)
-        K = 8
-        colors_x = adaptive_clustering_2(img, K=K)
-        df_color = color_to_df(colors_x)
-        print(df_color.head())
-        top_cols = extract_color(df_color)
-        top_cols_filtered = [cc[0] for cc in top_cols if (cc[1] != 0) and (cc[2] != 0)]
-        harmonies = extract_harmonies(top_cols_filtered)
-        hsvs_names = [[f'H{str(i)}', f'S{str(i)}', f'V{str(i)}'] for i in range(1,K+1)]
-        hsvs_names = [x for xs in hsvs_names for x in xs]
-        colours.append([f'{outdir}/seed{seed:05d}.png'] +[c for cc in top_cols for c in cc]+harmonies)
-        if seed_idx % 10 == 0:
-            df = pd.DataFrame(colours, columns=['fname', *hsvs_names, 'Monochromatic', 
-                                                'Analogous', 'Complementary', 'Triadic', 'Split Complementary',
-                                                'Double Complementary'])
-            df['Color'] = cat_from_hue(np.array(df['H1'].values), df['S1'], df['V1'])
-            print(df.head())
-            df.to_csv(DATA_DIR + f'color_palette{seeds[0]:05d}-{seeds[-1]:05d}.csv', index=False)
+        color = annotate_textile_image(img, k)
+        colours.append(color)
         
-    info = {'fname': fnames, 'seeds':seeds, 'z_vectors': z_vals, 'w_vectors': w_vals}
+        
+    info = {'fname': fnames, 'seeds':seeds, 'z_vectors': z_vals, 'w_vectors': w_vals, 'color':colours}
     with open(f'{DATA_DIR}seeds{seeds[0]:05d}-{seeds[-1]:05d}.pkl', 'wb') as f:
         pickle.dump(info, f)
 

@@ -11,7 +11,7 @@ from transformers import CLIPProcessor, CLIPModel
 with open('/home/ludosc/ludosc/color-disentanglement/data/seeds_asyrp_0000_4319_c.pkl', 'rb') as infile:
     pkl_file = pickle.load(infile)
     
-X = np.array(pkl_file['h_space'][:91]).reshape((len(pkl_file['h_space'][:91])*100,1280*8*8))
+X = np.array(pkl_file['h_space']).reshape((len(pkl_file['h_space'])*100,1280*8*8))
 y = np.array([color for color in pkl_file['color'] for i in range(100)])
 print(y.shape, X.shape)
 x_train, x_val, y_train, y_val = train_test_split(X, y, test_size=0.2)
