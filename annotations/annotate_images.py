@@ -39,7 +39,7 @@ def annotate_textile_image(image, k):
     """Produce annotations for the generated images.
     \b
     # 
-    python annotate_textiles.py --images_dir generated_images_directory
+    python annotate_images.py --images_dir /home/ludosc/ludosc/old_data/stylegan-10000-textile_ada
     """
     try:
         colors, counts = extract_palette(image, k)
@@ -60,6 +60,10 @@ def annotate_textile_image(image, k):
 #----------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    images_dir = '/home/ludosc/ludosc/old_data/stylegan-10000-textile_ada/'
+    pkl_file_name = '/home/ludosc/ludosc/color-disentanglement/data/seeds00000-10000.pkl'
+    k = 8
+    
     with open(pkl_file_name, 'rb') as infile:
         pkl_file = pickle.load(infile)
         
@@ -69,9 +73,13 @@ if __name__ == "__main__":
     
     print('Extracting main color from', len(images), 'images')
     for i,im in enumerate(tqdm(images)):
-        colours.append(annotate_textile_image(image, k)) # pylint: disable=no-value-for-parameter
-    
+        clr = annotate_textile_image(im, k)
+        colours.append(clr) # pylint: disable=no-value-for-parameter
+        if i < 150:
+            print(im, clr)
+            
     pkl_file['color'] = colours
+    
     
     with open(pkl_file_name.split('.pkl')[0] + '_color.pkl', 'wb') as outfile:
         pickle.dump(pkl_file, outfile)

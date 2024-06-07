@@ -77,7 +77,7 @@ def main():
 
     args = parser.parse_args()
     
-    kwargs = {'sign':[True], 'num_factors':[1, 5, 10, 20], 
+    kwargs = {'sign':[True], 'num_factors':[10, 20, 40], 
               'max_lambda':[args.max_lambda], 'cutout':[False]}
     
     with open(args.annotations_file, 'rb') as f:
@@ -100,7 +100,7 @@ def main():
             for cutout in kwargs['cutout']:
                 separation_vectors = disentanglemnet_exp.StyleSpace_separation_vector(sign=sign, num_factors=num_factors, cutout=cutout)
             
-                features = list(set(annotations['color']))
+                features = pd.Series(annotations['color']).unique()
                 print('Checking length of outputted vectors', len(separation_vectors), len(features))
                 for i in range(len(separation_vectors)):
                     print(separation_vectors[i])

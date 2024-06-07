@@ -27,7 +27,7 @@ from annotate_images import *
 sys.path.append('../utils')
 from utils import *
 
-sys.path.insert(0, '/shares/weddigen.ki.phf.uzh/ludosc/color-disentanglement/stylegan')
+sys.path.insert(0, '../stylegan')
 import dnnlib 
 import legacy
 from networks_stylegan3 import *

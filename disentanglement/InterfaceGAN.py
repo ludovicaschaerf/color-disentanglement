@@ -125,7 +125,7 @@ def main():
                     if not extr:
                         continue
 
-                features = list(set(annotations['color'])) if not args.continuous_experiment else ['cont']
+                features = pd.Series(annotations['color']).unique() if not args.continuous_experiment else ['cont']
                 print('Checking length of outputted vectors', separation_vectors.shape, len(features))
                 for i in range(separation_vectors.shape[0]):
                     print(separation_vectors[i, :])

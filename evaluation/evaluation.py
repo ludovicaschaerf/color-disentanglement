@@ -13,9 +13,7 @@ import cv2
 import random
 
 sys.path.append('../annotations')
-from color_annotations import extract_color, color_to_df
-from color_harmony import extract_harmonies
-import extcolors
+from annotate_images import annotate_textile_image
 
 sys.path.append('../disentanglement')
 from disentanglement import DisentanglementBase
@@ -29,8 +27,8 @@ import dnnlib
 import legacy
 
 class DisentanglementEvaluation(DisentanglementBase):
-    def __init__(self, model, annotations, df, space, colors_list, color_bins, compute_s=False, variable='H1', categorical=True, repo_folder='.'):
-        super().__init__(model, annotations, df, space, colors_list, color_bins, compute_s, variable, categorical, repo_folder)
+    def __init__(self, model, annotations, space, compute_s=False, variable='color', categorical=True, repo_folder='.'):
+        super().__init__(model, annotations, space, compute_s, variable, categorical, repo_folder)
     
     def structural_coherence(self, im1, im2):
         ## struct coherence
@@ -58,21 +56,12 @@ class DisentanglementEvaluation(DisentanglementBase):
                                                     count=lambda_range+1, savefig=False, subfolder=subfolder, method=method, feature=feature) 
             orig_image = images[0]
             for j, (img, lmb) in enumerate(zip(images, lambdas)):
-                colors_x = extcolors.extract_from_image(img, tolerance=8, limit=13)
-                df_color = color_to_df(colors_x)
-                top_cols = extract_color(df_color)
-                top_cols_filtered = [cc[0] for cc in top_cols if (cc[1] != 0) and (cc[2] != 0)]
-                harmonies = extract_harmonies(top_cols_filtered)
+                clr = annotate_textile_image(img, 8)
                 cor = self.structural_coherence(img, orig_image)
-                variation_scores.append([seed, lmb, cor] + [c for cc in top_cols for c in cc] + harmonies)
+                variation_scores.append([seed, lmb, cor, clr])
                 
         
-        df = pd.DataFrame(variation_scores, columns=['seed', 'lambda', 'SSIM', 'H1', 'S1', 'V1', 'H2', 'S2', 'V2', 'H3', 
-                                            'S3', 'V3', 'H4', 'S4', 'V4', 'H5', 'S5', 'V5', 
-                                            'Monochromatic', 'Analogous', 'Complementary', 'Triadic',
-                                            'Split Complementary', 'Double Complementary',
-                            ])
-        df['Color'] = cat_from_hue(np.array(df['H1'].values), df['S1'], df['V1'])
+        df = pd.DataFrame(variation_scores, columns=['seed', 'lambda', 'SSIM', 'color'])
         print(df)
         return df
 
@@ -80,30 +69,25 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process input arguments')
     
     parser.add_argument('--annotations_file', type=str, default='../data/seeds0000-100000.pkl')
-    parser.add_argument('--df_file', type=str, default='../data/color_palette00000-99999.csv')
     parser.add_argument('--model_file', type=str, default='../data/network-snapshot-005000.pkl')
-    parser.add_argument('--df_separation_vectors', type=str, default='../data/interfaceGAN_separation_vector_Color.csv') #
-    parser.add_argument('--max_lambda', type=int, default=15)
+    parser.add_argument('--df_separation_vectors', type=str, default='../data/interfaceGAN_separation_vector_color.csv') #
+    parser.add_argument('--max_lambda', type=int, default=25)
     parser.add_argument('--seeds', nargs='+', type=int, default=None)
 
     args = parser.parse_args()
+    
     with open(args.annotations_file, 'rb') as f:
         annotations = pickle.load(f)
-
-    df = pd.read_csv(args.df_file).fillna(0)
-    df['seed'] = df['fname'].str.replace('.png', '').str.replace('seed', '').astype(int)
-    df = df.sort_values('seed').reset_index()
-    print(df.head())
     
     with dnnlib.util.open_url(args.model_file) as f:
         model = legacy.load_network_pkl(f)['G_ema'] # type: ignore
 
     if args.seeds is None or len(args.seeds) == 0:
-        args.seeds = [random.randint(0,10000) for i in range(100)]
+        args.seeds = [random.randint(0,1000) for i in range(20)]
        
     df_separation_vectors = pd.read_csv(args.df_separation_vectors)
 
-    disentanglemnet_eval = DisentanglementEvaluation(model, annotations, df, space='w', color_bins=None, colors_list=None)
+    disentanglemnet_eval = DisentanglementEvaluation(model, annotations, space='w')
     
     df_modifications = pd.DataFrame()
     ## save vector in npy and metadata in csv

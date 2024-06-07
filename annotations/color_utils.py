@@ -7,7 +7,7 @@ import numpy as np
 import colorsys
 import sys
 from sklearn.cluster import KMeans
-
+import cv2
 
 sys.path.append('../utils/')
 from utils import *
@@ -42,17 +42,18 @@ def rgb_to_hsv(rgb):
     r, g, b = [x / 255.0 for x in rgb]
     return colorsys.rgb_to_hsv(r, g, b)
 
-def closest_color_hue(target_rgb, color_list, lum_strength=0.2):
+def closest_color_hue(target_rgb, color_list, lum_strength=0.1):
     target_hsv = rgb_to_hsv(target_rgb)
     target_hue = target_hsv[0]
-
+    target_value = target_hsv[2]
+        
     min_distance = float('inf')
     closest_color = None
 
     for i, rgb in enumerate(color_list):
         color_hsv = rgb_to_hsv(rgb)
         color_hue = color_hsv[0]
-
+        
         # Calculate the distance between the target hue and this color's hue
         distance = abs(target_hue - color_hue)
 
@@ -62,11 +63,22 @@ def closest_color_hue(target_rgb, color_list, lum_strength=0.2):
 
         distance += lum_strength * (np.abs(target_hsv[1] - color_hsv[1]) + np.abs(target_hsv[2] - color_hsv[2]))
         
+        if color_hsv[2] < 0.001:
+            black_color = rgb
+            black_color_idx = i
+            continue
+        
         # Update the closest color if this distance is smaller
         if distance < min_distance:
             min_distance = distance
             closest_color = rgb
             closest_color_idx = i
+        
+        
+        
+    if target_value < 0.001:
+        closest_color = black_color
+        closest_color_idx = black_color_idx
 
     return closest_color, closest_color_idx
 

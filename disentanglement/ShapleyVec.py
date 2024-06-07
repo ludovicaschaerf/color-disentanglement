@@ -129,7 +129,7 @@ def main():
     parser.add_argument('--model_file', type=str, default='../data/network-snapshot-005000.pkl')
     parser.add_argument('--subfolder', type=str, default='interfaceGAN/color/')
     parser.add_argument('--variable', type=str, default='color')
-    parser.add_argument('--max_lambda', type=int, default=15)
+    parser.add_argument('--max_lambda', type=int, default=20)
     parser.add_argument('--continuous_experiment', type=bool, default=False)
     parser.add_argument('--seeds', nargs='+', type=int, default=None)
 
@@ -161,7 +161,7 @@ def main():
                 if not weighted:
                     if variation == 0.4:
                         continue
-                features = list(set(annotations['color']))
+                features = pd.Series(annotations['color']).unique()
                 print('Checking length of outputted vectors', len(separation_vectors), len(features))
                 for i in range(len(separation_vectors)):
                     print(separation_vectors[i])
