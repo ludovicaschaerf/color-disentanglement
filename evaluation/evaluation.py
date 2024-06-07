@@ -71,7 +71,7 @@ if __name__ == '__main__':
     parser.add_argument('--annotations_file', type=str, default='../data/seeds0000-100000.pkl')
     parser.add_argument('--model_file', type=str, default='../data/network-snapshot-005000.pkl')
     parser.add_argument('--df_separation_vectors', type=str, default='../data/interfaceGAN_separation_vector_color.csv') #
-    parser.add_argument('--max_lambda', type=int, default=25)
+    parser.add_argument('--max_lambda', type=int, default=20)
     parser.add_argument('--seeds', nargs='+', type=int, default=None)
 
     args = parser.parse_args()
@@ -83,7 +83,7 @@ if __name__ == '__main__':
         model = legacy.load_network_pkl(f)['G_ema'] # type: ignore
 
     if args.seeds is None or len(args.seeds) == 0:
-        args.seeds = [random.randint(0,1000) for i in range(20)]
+        args.seeds = [random.randint(0,1000) for i in range(50)]
        
     df_separation_vectors = pd.read_csv(args.df_separation_vectors)
 

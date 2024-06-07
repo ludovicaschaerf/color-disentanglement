@@ -42,26 +42,38 @@ def rgb_to_hsv(rgb):
     r, g, b = [x / 255.0 for x in rgb]
     return colorsys.rgb_to_hsv(r, g, b)
 
+def color_hue_distance(target, color, lum_strength=0.1, to_hsv=False):
+    if to_hsv:
+        target_hsv = rgb_to_hsv(target)
+        color_hsv = rgb_to_hsv(color)
+    else:
+        target_hsv = target
+        color_hsv = color
+        
+    target_hue = target_hsv[0]
+    color_hue = color_hsv[0]
+        
+    # Calculate the distance between the target hue and this color's hue
+    distance = abs(target_hue - color_hue)
+
+    # Handle circular nature of hue
+    if distance > 0.5:
+        distance = 1 - distance
+
+    distance += lum_strength * (np.abs(target_hsv[1] - color_hsv[1]) + np.abs(target_hsv[2] - color_hsv[2]))
+    
+    return distance
+
 def closest_color_hue(target_rgb, color_list, lum_strength=0.1):
     target_hsv = rgb_to_hsv(target_rgb)
-    target_hue = target_hsv[0]
     target_value = target_hsv[2]
-        
+    
     min_distance = float('inf')
     closest_color = None
 
     for i, rgb in enumerate(color_list):
         color_hsv = rgb_to_hsv(rgb)
-        color_hue = color_hsv[0]
-        
-        # Calculate the distance between the target hue and this color's hue
-        distance = abs(target_hue - color_hue)
-
-        # Handle circular nature of hue
-        if distance > 0.5:
-            distance = 1 - distance
-
-        distance += lum_strength * (np.abs(target_hsv[1] - color_hsv[1]) + np.abs(target_hsv[2] - color_hsv[2]))
+        distance = color_hue_distance(target_hsv, color_hsv, lum_strength=lum_strength)
         
         if color_hsv[2] < 0.001:
             black_color = rgb
@@ -73,7 +85,6 @@ def closest_color_hue(target_rgb, color_list, lum_strength=0.1):
             min_distance = distance
             closest_color = rgb
             closest_color_idx = i
-        
         
         
     if target_value < 0.001:
