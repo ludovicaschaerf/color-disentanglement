@@ -11,6 +11,9 @@ from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
+import torch
+from torchvision.transforms.functional import to_pil_image
+
 from tqdm import tqdm
 import random
 from os.path import join
@@ -31,68 +34,29 @@ sys.path.append('../utils')
 from utils import *
 
 class DisentanglementBase:
-    def __init__(self, model, annotations, df, space, colors_list, color_bins, compute_s=False, variable='H1', categorical=True, repo_folder='.'):
+    def __init__(self, model, annotations, space, compute_s=False, variable='color', categorical=True, repo_folder='.'):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print('Using device', self.device)
         self.repo_folder = repo_folder
         if model is not None:
             self.model = model.to(self.device)
         self.annotations = annotations
-        self.df = df
         self.space = space
         self.categorical = categorical
         self.variable = variable
+        self.colors_list = pd.Series(self.annotations['color']).unique()
+        print(self.colors_list)
         
         self.layers = ['input', 'L0_36_512', 'L1_36_512', 'L2_36_512', 'L3_52_512',
                        'L4_52_512', 'L5_84_512', 'L6_84_512', 'L7_148_512', 'L8_148_512', 
                        'L9_148_362', 'L10_276_256', 'L11_276_181', 'L12_276_128', 
                        'L13_256_128', 'L14_256_3']
         self.layers_shapes = [4, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 362, 256, 181, 128, 128]
-        self.decoding_layers = 16
+        self.decoding_layers = 14
         
-        self.color_bins = color_bins
-        self.colors_list = colors_list
-        
-        if 'top1col' in self.df.columns:
-            self.to_hsv()
         if compute_s:
             self.get_s_space()
         
-    def to_hsv(self):
-        """
-        The tohsv function takes the top 3 colors of each image and converts them to HSV values.
-        It then adds these values as new columns in the dataframe.
-        
-        :param self: Allow the function to access the dataframe
-        :return: The dataframe with the new columns added
-        :doc-author: Trelent
-        """
-        print('Adding HSV encoding')
-        self.df['H1'] = self.df['top1col'].map(lambda x: rgb2hsv(*hex2rgb(x))[0])
-        self.df['H2'] = self.df['top2col'].map(lambda x: rgb2hsv(*hex2rgb(x))[0])
-        self.df['H3'] = self.df['top3col'].map(lambda x: rgb2hsv(*hex2rgb(x))[0])
-        
-        self.df['S1'] = self.df['top1col'].map(lambda x: rgb2hsv(*hex2rgb(x))[1])
-        self.df['S2'] = self.df['top2col'].map(lambda x: rgb2hsv(*hex2rgb(x))[1])
-        self.df['S3'] = self.df['top3col'].map(lambda x: rgb2hsv(*hex2rgb(x))[1])
-        
-        self.df['V1'] = self.df['top1col'].map(lambda x: rgb2hsv(*hex2rgb(x))[2])
-        self.df['V2'] = self.df['top2col'].map(lambda x: rgb2hsv(*hex2rgb(x))[2])
-        self.df['V3'] = self.df['top3col'].map(lambda x: rgb2hsv(*hex2rgb(x))[2])
-        
-        print('Adding RGB encoding')
-        self.df['R1'] = self.df['top1col'].map(lambda x: ImageColor.getcolor(x, 'RGB')[0])
-        self.df['R2'] = self.df['top2col'].map(lambda x: ImageColor.getcolor(x, 'RGB')[0])
-        self.df['R3'] = self.df['top3col'].map(lambda x: ImageColor.getcolor(x, 'RGB')[0])
-        
-        self.df['G1'] = self.df['top1col'].map(lambda x: ImageColor.getcolor(x, 'RGB')[1])
-        self.df['G2'] = self.df['top2col'].map(lambda x: ImageColor.getcolor(x, 'RGB')[1])
-        self.df['G3'] = self.df['top3col'].map(lambda x: ImageColor.getcolor(x, 'RGB')[1])
-        
-        self.df['B1'] = self.df['top1col'].map(lambda x: ImageColor.getcolor(x, 'RGB')[2])
-        self.df['B2'] = self.df['top2col'].map(lambda x: ImageColor.getcolor(x, 'RGB')[2])
-        self.df['B3'] = self.df['top3col'].map(lambda x: ImageColor.getcolor(x, 'RGB')[2])
-    
     def get_s_space(self):
         """
         The get_s_space function takes the w_vectors from the annotations dictionary and uses them to generate s_vectors.
@@ -125,6 +89,8 @@ class DisentanglementBase:
             X = np.array(self.annotations['w_vectors']).reshape((len(self.annotations['w_vectors']), 512))
         elif self.space.lower() == 'z':
             X = np.array(self.annotations['z_vectors']).reshape((len(self.annotations['z_vectors']), 512))
+        elif self.space.lower() == 'h':
+            X = np.array(self.annotations['unet_space']).reshape((len(self.annotations['unet_space']), 8*8*1280))
         elif self.space.lower() == 's':
             concat_v = []
             for i in range(len(self.annotations['w_vectors'])):
@@ -138,20 +104,13 @@ class DisentanglementBase:
         return X
     
     def get_train_val(self, extremes=False):
-        y = np.array(self.df[self.variable].values)
+        y = np.array(self.annotations['color'])
         print(y.shape, 'y')
-        y_v = np.array(self.df['V1'].values)
-        y_s = np.array(self.df['S1'].values)
         X = self.get_encoded_latent()[:y.shape[0], :]
         print(X.shape, 'X')
         if self.categorical:
-            if 'H' in self.variable:
-                y_cat = cat_from_hue(y, y_s, y_v, colors_list=self.colors_list, colors_bin=self.color_bins)   
-            else:
-                y_cat = y
-                print('already existing')
-            print('Training color distributions', pd.Series(y_cat).value_counts())
-            x_train, x_val, y_train, y_val = train_test_split(X, y_cat, test_size=0.2)
+            print('Training color distributions', pd.Series(y).value_counts())
+            x_train, x_val, y_train, y_val = train_test_split(X, y, test_size=0.2)
         else:
             if extremes:
                 # Calculate the number of elements to consider (20% of array size)
@@ -203,6 +162,11 @@ class DisentanglementBase:
             
         return separation_vectors    
     
+    def get_original_position_diffusion(self, flattened_vector):
+        # Reconstruct the latent direction
+        separation_vectors = np.array(flattened_vector).reshape((len(self.annotations['unet_space']), 2, 32, 8, 8))
+        return separation_vectors    
+    
     def generate_images(self, seed, separation_vector=None, lambd=0):
         """
         The generate_original_image function takes in a latent vector and the model,
@@ -238,6 +202,25 @@ class DisentanglementBase:
             
         img = (img.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
         return PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB')
+
+    def generate_images_diffusion(self, prompt, separation_vector=None, lambd=0):
+        """
+        The generate_original_image function takes in a latent vector and the model,
+        and returns an image generated from that latent vector.
+        
+        
+        :param z: Generate the image
+        :param model: Generate the image
+        :return: A pil image
+        :doc-author: Trelent
+        """
+        # Load the model and tokenizer
+        
+        
+        # Generate an image
+        image = self.model(prompt).images[0]
+
+        return image
 
     def forward_from_style(self, x, styles, layer):
         """Custom image generation using style layers of the network"""
@@ -290,7 +273,7 @@ class DisentanglementBase:
             
         return img
 
-    def generate_changes(self, seed, separation_vector, min_epsilon=-3, max_epsilon=3, count=7, savefig=True, subfolder='baseline', feature=None, method=None, save_separately=False):
+    def generate_changes(self, seed, separation_vector, min_epsilon=-3, max_epsilon=3, count=7, savefig=True, subfolder='baseline', feature=None, method=None, save_separately=False, prompt=None):
         """
         The regenerate_images function takes a model, z, and decision_boundary as input.  It then
         constructs an inverse rotation/translation matrix and passes it to the generator.  The generator
@@ -315,7 +298,8 @@ class DisentanglementBase:
                 images.append(self.generate_flexible_images(seed, separation_vector=separation_vector, lambd=lambd))
             elif self.space.lower() in ['z', 'w']:
                 images.append(self.generate_images(seed, separation_vector=separation_vector, lambd=lambd))
-        
+            elif self.space.lower() == 'h':
+                images.append(self.generate_images_diffusion(prompt, separation_vector=separation_vector, lambd=lambd))
         if savefig:
             os.makedirs(join(self.repo_folder, 'figures', subfolder), exist_ok=True)
             fig, axs = plt.subplots(1, len(images), figsize=(110,20))

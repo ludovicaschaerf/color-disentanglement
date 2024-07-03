@@ -1,7 +1,9 @@
 import pandas as pd
 import extcolors
 from colormap import rgb2hex
-
+import os
+from typing import List, Optional, Tuple, Union
+import re
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.image as mpimg
@@ -41,21 +43,66 @@ def rgb2hsv(r, g, b):
     # return rounded values of H, S and V
     return tuple(map(round, (h, s, v)))
 
+#----------------------------------------------------------------------------
+
+def parse_range(s: Union[str, List]) -> List[int]:
+    '''Parse a comma separated list of numbers or ranges and return a list of ints.
+
+    Example: '1,2,5-10' returns [1, 2, 5, 6, 7]
+    '''
+    if isinstance(s, list): return s
+    ranges = []
+    range_re = re.compile(r'^(\d+)-(\d+)$')
+    for p in s.split(','):
+        m = range_re.match(p)
+        if m:
+            ranges.extend(range(int(m.group(1)), int(m.group(2))+1))
+        else:
+            ranges.append(int(p))
+    return ranges
+
+def parse_vec2(s: Union[str, Tuple[float, float]]) -> Tuple[float, float]:
+    '''Parse a floating point 2-vector of syntax 'a,b'.
+
+    Example:
+        '0,1' returns (0,1)
+    '''
+    if isinstance(s, tuple): return s
+    parts = s.split(',')
+    if len(parts) == 2:
+        return (float(parts[0]), float(parts[1]))
+    raise ValueError(f'cannot parse 2-vector {s}')
+
+def make_transform(translate: Tuple[float,float], angle: float):
+    m = np.eye(3)
+    s = np.sin(angle/360.0*np.pi*2)
+    c = np.cos(angle/360.0*np.pi*2)
+    m[0][0] = c
+    m[0][1] = s
+    m[0][2] = translate[0]
+    m[1][0] = -s
+    m[1][1] = c
+    m[1][2] = translate[1]
+    return m
+
+#----------------------------------------------------------------------------
+
 def plot_color_palette(outpath, zoom, list_precent, text_c, list_color, input_image, ):
     bg = 'bg.png'
     fig, ax = plt.subplots(figsize=(192,108),dpi=10)
     fig.set_facecolor('white')
-    plt.savefig(bg)
+    os.makedirs(outpath, exist_ok=True)
+    plt.savefig(outpath + bg)
     plt.close(fig)
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(160,120), dpi = 10)
         
     #donut plot
     wedges, text = ax1.pie(list_precent,
-                            labels=text_c,
-                            labeldistance= 1.05,
-                            colors=list_color,
-                            textprops={'fontsize': 150, 'color':'black'})
+                           labels = text_c,
+                           labeldistance = 1.05,
+                           colors =list_color,
+                           textprops = {'fontsize': 150, 'color':'black'})
     plt.setp(wedges, width=0.3)
 
     #add image in the center of donut plot
@@ -80,14 +127,16 @@ def plot_color_palette(outpath, zoom, list_precent, text_c, list_color, input_im
 
     fig.set_facecolor('white')        
     ax2.axis('off')
-    bg = plt.imread('bg.png')
+    bg = plt.imread(outpath + bg)
     plt.imshow(bg)       
     plt.tight_layout()
-    plt.savefig(outpath)
+    plt.savefig(outpath + input_image.split('/')[-1])
     plt.close(fig)
 
+#----------------------------------------------------------------------------
+
 def cat_from_hue(hues, saturations, values, 
-                 colors_list=['Brown', 'Yellow', 'Green', 'Cyan', 'Blue', 'Magenta', 'Red', 'BW'],
+                 colors_list=['Red', 'Yellow', 'Green', 'Cyan', 'Blue', 'Purple', 'Magenta', 'BW'],
                  color_bins=[0, 35, 70, 150, 200, 260, 345, 360]):
     if 'BW' in colors_list:
         if color_bins is None:
