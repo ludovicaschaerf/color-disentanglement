@@ -1,7 +1,0 @@
-Method,Variable,Feature,Broad,Optimal lambda,Total Score,Score lambda 1,Score lambda 2,Score lambda 3,Score lambda 4,Score lambda 5,Score lambda 6,Score lambda 7,Score lambda 8,Score lambda 9,Score lambda 10,Score lambda 11,Score lambda 12,Score lambda 13,Score lambda 14,Score lambda 15,Final Score
-InterfaceGAN_LR_0.01_8_S1_False,S1,,,15.0,0.454,0.041,0.102,0.161,0.238,0.305,0.385,0.46,0.53,0.591,0.647,0.665,0.679,0.676,0.671,0.658,0.679
-InterfaceGAN_LR_0.01_8_S1_True,S1,,,10.0,0.43,0.04,0.095,0.148,0.218,0.299,0.364,0.435,0.495,0.566,0.602,0.633,0.652,0.655,0.64,0.613,0.602
-InterfaceGAN_LR_0.1_8_S1_False,S1,,,15.0,0.45,0.03,0.098,0.154,0.245,0.301,0.384,0.456,0.525,0.586,0.635,0.662,0.672,0.675,0.67,0.653,0.675
-InterfaceGAN_LR_0.1_8_S1_True,S1,,,10.0,0.421,0.02,0.108,0.138,0.228,0.287,0.349,0.418,0.487,0.547,0.587,0.617,0.647,0.639,0.636,0.609,0.587
-InterfaceGAN_LR_1_8_S1_False,S1,,,15.0,0.448,0.049,0.096,0.165,0.249,0.304,0.388,0.461,0.523,0.573,0.625,0.654,0.67,0.668,0.657,0.642,0.67
-InterfaceGAN_LR_1_8_S1_True,S1,,,11.0,0.421,0.036,0.09,0.146,0.228,0.282,0.358,0.42,0.482,0.543,0.594,0.615,0.643,0.639,0.636,0.605,0.615

@@ -27,8 +27,11 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+data_old/
+
 data/network-snapshot-005000.pkl
-data/seeds0000-100000.pkl
+data/seeds00000-10000.pkl
+data/seeds00000-10000_color.pkl
 figures/
 # PyInstaller
 #  Usually these files are written by a python script from a template
